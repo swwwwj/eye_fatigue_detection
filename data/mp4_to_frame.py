@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import cv2
+import time
 
 video_folder = "/mnt/c/Users/38382/fatigue_videos/"
 data_root = "/home/swj/eye_fatigue_detection/data/"
@@ -49,20 +50,28 @@ for video_name in video_files:
     cnn_saved = 0
     frame_idx = 0
 
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break  
 
         if frame_idx % step_size == 0 and cnn_saved < cnn_frame_count:
-            cnn_frame_path = os.path.join(cnn_output_folder, f"{video_name}_frame_{cnn_saved:04d}.jpg")
+            cnn_frame_path = os.path.join(
+                cnn_output_folder,
+                f"{file_name}_{timestamp}_frame_{cnn_saved:04d}.jpg"
+            )
             cv2.imwrite(cnn_frame_path, frame)
             cnn_saved += 1  
 
         frames.append(frame)
         if len(frames) == sequence_length:
-            rnn_file_path = os.path.join(rnn_output_folder, f"{video_name}_seq_{frame_idx - sequence_length + 1:04d}.npy")
-            np.save(rnn_file_path, np.array(frames)) 
+            rnn_file_path = os.path.join(
+                rnn_output_folder,
+                f"{file_name}_{timestamp}_seq_{frame_idx - sequence_length + 1:04d}.npy"
+            )
+            np.save(rnn_file_path, np.array(frames))
             frames = []
 
         frame_idx += 1
