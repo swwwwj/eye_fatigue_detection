@@ -4,15 +4,12 @@ import cv2
 import dlib
 from scipy.spatial import distance
 
-# 设置路径
 data_root = "/home/swj/eye_fatigue_detection/data/"
 processed_data_root = "/home/swj/eye_fatigue_detection/data/processed_features"
 
-# dlib人脸和眼镜检测器
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('/home/swj/eye_fatigue_detection/models/shape_predictor_68_face_landmarks.dat')
 
-# EAR计算函数
 def eye_aspect_ratio(eye):
     A = distance.euclidean(eye[1], eye[5])
     B = distance.euclidean(eye[2], eye[4])
@@ -20,16 +17,13 @@ def eye_aspect_ratio(eye):
     ear = (A + B) / (2.0 * C)
     return ear
 
-# PERCLOS计算函数
 def perclos(eye_aspect_ratio_sequence, threshold=0.2):
     return sum([1 for ear in eye_aspect_ratio_sequence if ear < threshold]) / len(eye_aspect_ratio_sequence)
 
-# 计算瞳孔中心的轨迹
 def pupil_motion(pupil_positions):
     distances = [distance.euclidean(pupil_positions[i], pupil_positions[i-1]) for i in range(1, len(pupil_positions))]
     return np.sum(distances)
 
-# 从npy文件中提取特征
 def extract_features_from_npy(npy_file):
     frames = np.load(npy_file)
     eye_aspect_ratios = []
@@ -69,7 +63,6 @@ def extract_features_from_npy(npy_file):
 
     return blink_rate, perclos_value, pupil_motion_distance
 
-# 递归遍历文件夹并处理所有npy文件
 def process_video(npy_folder, output_folder):
     for root, dirs, files in os.walk(npy_folder):
         npy_files = [f for f in files if f.endswith('.npy')]
@@ -78,21 +71,17 @@ def process_video(npy_folder, output_folder):
             npy_file_path = os.path.join(root, npy_file)
             print(f"Processing {npy_file_path}...")
 
-            # 检查是否已处理
             output_file_path = os.path.join(output_folder, npy_file.replace('.npy', '_features.npy'))
-            if os.path.exists(output_file_path):  # 如果特征文件已存在，跳过处理
+            if os.path.exists(output_file_path): 
                 print(f"Skipping {npy_file_path}, features already exist.")
                 continue
 
-            # 提取特征
             blink_rate, perclos_value, pupil_motion_distance = extract_features_from_npy(npy_file_path)
 
-            # 保存特征
             features = np.array([blink_rate, perclos_value, pupil_motion_distance])
             np.save(output_file_path, features)
             print(f"Saved features to {output_file_path}")
 
-# 主函数
 def main():
     npy_folder = "/home/swj/eye_fatigue_detection/data/RNN"
     output_folder = "/home/swj/eye_fatigue_detection/data/processed_features"

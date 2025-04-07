@@ -5,7 +5,6 @@ import dlib
 import glob
 import random
 
-# 路径设置
 video_folder = "/mnt/c/Users/38382/fatigue_videos/"
 data_root = "/home/swj/eye_fatigue_detection/data/"
 sequence_length = 300
@@ -81,7 +80,6 @@ for video_name in video_files:
         cap.release()
         continue
 
-    # 清理不完整部分
     if not cnn_complete:
         print("Cleaning existing incomplete CNN data...")
         for f in cnn_files:
@@ -137,11 +135,10 @@ for video_name in video_files:
         if frame_idx % 100 == 0:
             print(f"Processed {frame_idx}/{total_frames} frames...")
 
-    # 处理不满300帧的最后一个RNN序列：进行数据增强
     if not rnn_complete and len(frames) > 0:
         print("Augmenting last RNN sequence with flipping...")
         while len(frames) < sequence_length:
-            # 从已有帧中随机选择一帧做水平翻转增强
+
             choice = random.choice(frames)
             flipped = cv2.flip(choice, 1)
             frames.append(flipped)
