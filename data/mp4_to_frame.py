@@ -69,23 +69,22 @@ for video_name in video_files:
     print(f"Video info: {total_frames} frames, {fps} FPS")
     print(f"Expected RNN sequences: {expected_rnn_sequences}")
 
+    # 检查 .jpg 和 .npy 文件是否已经生成
     cnn_files = glob.glob(os.path.join(cnn_output_folder, f"{video_name}_frame_*.jpg"))
     rnn_files = glob.glob(os.path.join(rnn_output_folder, f"{video_name}_seq_*.npy"))
 
-    cnn_complete = len(cnn_files) >= cnn_frame_count
-    rnn_complete = len(rnn_files) >= expected_rnn_sequences
-
-    if cnn_complete and rnn_complete:
+    # 只要 .jpg 和 .npy 文件都存在，跳过处理
+    if len(cnn_files) > 0 and len(rnn_files) > 0:
         print(f"Skipping {video_name}, complete data already exists.")
         cap.release()
         continue
 
-    if not cnn_complete:
+    if len(cnn_files) > 0:
         print("Cleaning existing incomplete CNN data...")
         for f in cnn_files:
             os.remove(f)
 
-    if not rnn_complete:
+    if len(rnn_files) > 0:
         print("Cleaning existing incomplete RNN data...")
         for f in rnn_files:
             os.remove(f)
@@ -112,13 +111,13 @@ for video_name in video_files:
             try:
                 face_resized = cv2.resize(face_img, (224, 224))
                 
-                if not cnn_complete and frame_idx % cnn_sample_interval == 0 and cnn_saved < cnn_frame_count:
+                if len(cnn_files) == 0 and frame_idx % cnn_sample_interval == 0 and cnn_saved < cnn_frame_count:
                     cnn_frame_path = os.path.join(cnn_output_folder, 
                                                   f"{video_name}_frame_{cnn_saved:04d}.jpg")
                     cv2.imwrite(cnn_frame_path, face_resized)
                     cnn_saved += 1
 
-                if not rnn_complete:
+                if len(rnn_files) == 0:
                     frames.append(face_resized)
                     if len(frames) == sequence_length:
                         rnn_file_path = os.path.join(rnn_output_folder, 
@@ -135,7 +134,7 @@ for video_name in video_files:
         if frame_idx % 100 == 0:
             print(f"Processed {frame_idx}/{total_frames} frames...")
 
-    if not rnn_complete and len(frames) > 0:
+    if len(rnn_files) == 0 and len(frames) > 0:
         print("Augmenting last RNN sequence with flipping...")
         while len(frames) < sequence_length:
 
