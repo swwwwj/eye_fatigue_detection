@@ -6,7 +6,8 @@ import numpy as np
 import torch.nn as nn
 import os
 
-app = Flask(__name__)
+# 设置模板路径
+app = Flask(__name__, template_folder="frontend/templates")
 
 # 定义判别器网络结构，与训练时一致
 class Discriminator(nn.Module):
@@ -85,7 +86,6 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
-    # 使用 multipart/x-mixed-replace 返回视频流
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
