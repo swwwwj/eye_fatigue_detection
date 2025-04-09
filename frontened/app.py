@@ -6,6 +6,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import os
+import dlib
 
 # 设置模板路径
 app = Flask(__name__, template_folder=r"D:\github\eye_fatigue_detection\frontened\templates")
@@ -33,7 +34,7 @@ class Discriminator(nn.Module):
         x = x.view(x.size(0), -1)
         return self.fc_layers(x)
 
-# 定义 FatigueRNN 模型，与RNN.py中保持一致
+# 定义 FatigueRNN 模型
 class FatigueRNN(nn.Module):
     def __init__(self, input_size=3, hidden_size=64, num_layers=2, num_classes=4):
         super(FatigueRNN, self).__init__()
@@ -65,6 +66,9 @@ checkpoint = torch.load(rnn_model_path, map_location=device)
 fatigue_rnn.load_state_dict(checkpoint["model_state_dict"])
 fatigue_rnn.eval()
 
+# 初始化dlib人脸检测器
+detector = dlib.get_frontal_face_detector()
+
 # 定义图像预处理
 transform = transforms.Compose([
     transforms.ToPILImage(),
@@ -85,50 +89,68 @@ def gen_frames():
     frame_count = 0
     prob_accumulator = None
     current_label = "N/A"
+    
     while True:
         success, frame = cap.read()
         if not success:
             break
-        
-        # 将 BGR 转为 RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        input_tensor = transform(rgb_frame)
-        input_tensor = input_tensor.unsqueeze(0).to(device)
-        
-        with torch.no_grad():
-            # 模型1：判别器预测，并计算 softmax 概率
-            output_d = discriminator(input_tensor)
-            prob_d = torch.softmax(output_d, dim=1)
             
-            # 模型2：对图像进行全局平均池化，转换输入格式后调用 FatigueRNN
-            pooled = F.adaptive_avg_pool2d(input_tensor, (1, 1))
-            rnn_input = pooled.view(1, 1, 3)  # (batch, seq_len, input_size)
-            output_rnn = fatigue_rnn(rnn_input)
-            prob_rnn = torch.softmax(output_rnn, dim=1)
+        # 人脸检测
+        faces = detector(frame)
+        
+        # 如果检测到人脸
+        if len(faces) > 0:
+            face = faces[0]  # 使用第一个检测到的人脸
+            x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
             
-            # 综合两个模型的概率（简单平均）
-            prob_final = (prob_d + prob_rnn) / 2
+            # 在原始帧上画出红色框
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            
+            # 提取人脸区域
+            face_img = frame[y1:y2, x1:x2]
+            if face_img.size != 0:  # 确保提取到了有效的人脸图像
+                # 转RGB并处理人脸图像
+                rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+                try:
+                    input_tensor = transform(rgb_face)
+                    input_tensor = input_tensor.unsqueeze(0).to(device)
+                    
+                    with torch.no_grad():
+                        # 模型1：判别器预测
+                        output_d = discriminator(input_tensor)
+                        prob_d = torch.softmax(output_d, dim=1)
+                        
+                        # 模型2：RNN预测
+                        pooled = F.adaptive_avg_pool2d(input_tensor, (1, 1))
+                        rnn_input = pooled.view(1, 1, 3)
+                        output_rnn = fatigue_rnn(rnn_input)
+                        prob_rnn = torch.softmax(output_rnn, dim=1)
+                        
+                        # 综合两个模型的概率
+                        prob_final = (prob_d + prob_rnn) / 2
+                    
+                    # 累积概率
+                    if prob_accumulator is None:
+                        prob_accumulator = prob_final
+                    else:
+                        prob_accumulator += prob_final
+                    frame_count += 1
+                    
+                    # 每累计10帧，更新预测
+                    if frame_count >= 10:
+                        avg_prob = prob_accumulator / frame_count
+                        final_class = torch.argmax(avg_prob, dim=1).item()
+                        current_label = class_names[final_class]
+                        frame_count = 0
+                        prob_accumulator = None
+                except Exception as e:
+                    print(f"Error processing face: {e}")
         
-        # 累积概率
-        if prob_accumulator is None:
-            prob_accumulator = prob_final
-        else:
-            prob_accumulator += prob_final
-        frame_count += 1
-        
-        # 每累计10帧，更新一次平均概率预测
-        if frame_count >= 10:
-            avg_prob = prob_accumulator / frame_count
-            final_class = torch.argmax(avg_prob, dim=1).item()
-            current_label = class_names[final_class]
-            frame_count = 0
-            prob_accumulator = None
-        
-        # 在图像上叠加分类信息
+        # 在图像上显示分类结果
         cv2.putText(frame, f'Class: {current_label}', (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         
-        # 编码为 JPEG 格式
+        # 编码为JPEG格式
         ret, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
