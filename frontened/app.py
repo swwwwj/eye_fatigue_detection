@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, jsonify
 import cv2
 import torch
 import torchvision.transforms as transforms
@@ -7,9 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import dlib
+from collections import deque
+from datetime import datetime, timedelta
 
 # 设置模板路径
-app = Flask(__name__, template_folder=r"D:\github\eye_fatigue_detection\frontened\templates")
+app = Flask(__name__, template_folder="/home/swj/eye_fatigue_detection/frontened/templates")
 
 # 定义判别器网络结构，与训练时一致
 class Discriminator(nn.Module):
@@ -51,7 +53,7 @@ class FatigueRNN(nn.Module):
         out = self.dropout(out[:, -1, :])
         out = self.fc(out)
         return out
-    
+
 # 设置设备，并加载预训练模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -79,6 +81,15 @@ transform = transforms.Compose([
 # 类别映射字典
 class_names = {0: "awake", 1: "mild_fatigue", 2: "moderate_fatigue", 3: "severe_fatigue"}
 
+# 统计数据存储
+fatigue_stats = {
+    "awake": deque(maxlen=3600),  # 保存1小时的数据
+    "mild_fatigue": deque(maxlen=3600),
+    "moderate_fatigue": deque(maxlen=3600),
+    "severe_fatigue": deque(maxlen=3600),
+}
+SEVERE_FATIGUE_THRESHOLD = 50  # 严重疲劳警告阈值
+
 # 打开摄像头
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
@@ -95,6 +106,8 @@ def gen_frames():
         if not success:
             break
             
+        current_time = datetime.now()
+        
         # 人脸检测
         faces = detector(frame)
         
@@ -141,10 +154,20 @@ def gen_frames():
                         avg_prob = prob_accumulator / frame_count
                         final_class = torch.argmax(avg_prob, dim=1).item()
                         current_label = class_names[final_class]
+                        
+                        # 更新统计数据
+                        fatigue_stats[current_label].append(current_time)
+                        
                         frame_count = 0
                         prob_accumulator = None
                 except Exception as e:
                     print(f"Error processing face: {e}")
+        
+        # 清理超过1小时的数据
+        for level in fatigue_stats:
+            while (fatigue_stats[level] and 
+                   (current_time - fatigue_stats[level][0]).total_seconds() > 3600):
+                fatigue_stats[level].popleft()
         
         # 在图像上显示分类结果
         cv2.putText(frame, f'Class: {current_label}', (10, 30),
@@ -163,6 +186,27 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/stats')
+def get_stats():
+    current_time = datetime.now()
+    ten_min_ago = current_time - timedelta(minutes=10)
+    
+    # 计算最近10分钟的统计
+    stats = {
+        level: sum(1 for t in times if (current_time - t).total_seconds() <= 600)
+        for level, times in fatigue_stats.items()
+    }
+    
+    # 检查是否需要发出警告
+    warning = (sum(1 for t in fatigue_stats['severe_fatigue'] 
+              if (current_time - t).total_seconds() <= 3600) 
+              >= SEVERE_FATIGUE_THRESHOLD)
+    
+    return jsonify({
+        'stats': stats,
+        'warning': warning
+    })
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)

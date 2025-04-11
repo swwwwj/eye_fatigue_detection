@@ -1,11 +1,122 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>实时分类</title>
-  </head>
-  <body>
-    <h1>摄像头实时视频流（分类）</h1>
-    <img src="{{ url_for('video_feed') }}" style="width: 640px; height:480px;">
-  </body>
+<head>
+    <title>Eye Fatigue Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .container {
+            display: flex;
+            margin: 20px;
+            gap: 20px;
+        }
+        .video-container {
+            flex: 1;
+            min-width: 640px;
+        }
+        .stats-container {
+            flex: 1;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            min-width: 400px;
+        }
+        .warning {
+            color: #ff0000;
+            font-weight: bold;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #ffe6e6;
+            border-radius: 5px;
+            display: none;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Eye Fatigue Detection System</h1>
+    <div class="container">
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" width="100%">
+        </div>
+        <div class="stats-container">
+            <canvas id="fatigueChart"></canvas>
+            <div id="warning" class="warning">
+                WARNING: High level of severe fatigue detected in the last hour!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('fatigueChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Awake', 'Mild Fatigue', 'Moderate Fatigue', 'Severe Fatigue'],
+                datasets: [{
+                    label: 'Last 10 Minutes Fatigue Statistics',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(255, 159, 64, 0.2)',
+                        'rgba(255, 99, 132, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Occurrence Count'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Fatigue Level Distribution (Last 10 Minutes)',
+                        padding: 20
+                    }
+                }
+            }
+        });
+
+        // 定期更新统计数据
+        function updateStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    chart.data.datasets[0].data = [
+                        data.stats.awake,
+                        data.stats.mild_fatigue,
+                        data.stats.moderate_fatigue,
+                        data.stats.severe_fatigue
+                    ];
+                    chart.update();
+                    
+                    // 显示或隐藏警告
+                    document.getElementById('warning').style.display = 
+                        data.warning ? 'block' : 'none';
+                });
+        }
+
+        // 每秒更新一次统计数据
+        setInterval(updateStats, 1000);
+    </script>
+</body>
 </html>
