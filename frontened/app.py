@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, jsonify
+from flask import Flask, render_template, Response, jsonify, send_file
 import cv2
 import torch
 import torchvision.transforms as transforms
@@ -9,6 +9,13 @@ import os
 import dlib
 from collections import deque
 from datetime import datetime, timedelta
+import pandas as pd
+from pathlib  import Path
+from data_analysis import FatigueDataAnalyzer
+
+# 数据存放路径
+data_dir = Path("E:/data/eye_data")
+data_dir.mkdir(parents=True, exist_ok=True)
 
 # 模板路径
 app = Flask(__name__, template_folder="D:/github/eye_fatigue_detection/frontened/templates")
@@ -54,6 +61,45 @@ class FatigueRNN(nn.Module):
         out = self.fc(out)
         return out
 
+def save_detection_data(timestamp, label, probabilities):
+    """保存最近一小时的检测数据到CSV文件"""
+    filename = data_dir / f"fatigue_data_{timestamp.strftime('%Y%m%d')}.csv"
+    current_time = timestamp
+    
+    # 准备新数据
+    new_data = {
+        'timestamp': [timestamp],
+        'label': [label],
+        'prob_awake': [probabilities[0]],
+        'prob_mild': [probabilities[1]],
+        'prob_moderate': [probabilities[2]],
+        'prob_severe': [probabilities[3]]
+    }
+    
+    try:
+        if filename.exists():
+            # 读取现有数据并转换时间戳
+            df = pd.read_csv(filename)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # 只保留最近一小时的数据
+            one_hour_ago = current_time - timedelta(hours=1)
+            df = df[df['timestamp'] >= one_hour_ago]
+            
+            # 添加新数据
+            new_df = pd.DataFrame(new_data)
+            df = pd.concat([df, new_df], ignore_index=True)
+            
+        else:
+            # 创建新文件
+            df = pd.DataFrame(new_data)
+        
+        # 保存数据
+        df.to_csv(filename, index=False)
+        
+    except Exception as e:
+        print(f"保存数据时出错: {e}")
+
 # 使用GPU或CPU，调用预训练模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -88,7 +134,7 @@ fatigue_stats = {
     "moderate_fatigue": deque(maxlen=3600),
     "severe_fatigue": deque(maxlen=3600),
 }
-SEVERE_FATIGUE_THRESHOLD = 2  # 严重疲劳警告阈值
+SEVERE_FATIGUE_THRESHOLD = 50  # 严重疲劳警告阈值
 
 
 cap = cv2.VideoCapture(0)
@@ -157,6 +203,7 @@ def gen_frames():
                         
                         # 更新统计数据
                         fatigue_stats[current_label].append(current_time)
+                        save_detection_data(current_time, current_label, avg_prob.cpu().numpy()[0])
                         
                         frame_count = 0
                         prob_accumulator = None
@@ -178,6 +225,8 @@ def gen_frames():
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+analyzer = FatigueDataAnalyzer("sk-AqV2qUki0lPDuRUDGdrb9cKz7GPn9Tx1n7UQ2fu6gyLEBSSF")
 
 @app.route('/')
 def index():
@@ -220,6 +269,59 @@ def reset_stats():
     }
     return jsonify({'status': 'success'})
 
+@app.route('/history/<date>')
+def get_history(date):
+    """获取指定日期的历史数据"""
+    try:
+        datetime.strptime(date, '%Y%m%d')
+        filename = data_dir / f"fatigue_data_{date}.csv"
+        
+        if filename.exists():
+            df = pd.read_csv(filename)
+            return jsonify({
+                'status': 'success',
+                'data': df.to_dict('records')
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '该日期没有数据'
+            })
+    except ValueError:
+        return jsonify({
+            'status': 'error',
+            'message': '日期格式无效'
+        })
+    
+@app.route('/analyze/<date>')
+def analyze_data(date):
+    """分析指定日期的疲劳数据并生成报告"""
+    result = analyzer.generate_analysis_report(date)
+    return jsonify(result)
+
+@app.route('/download_report/<date>/<format>')
+def download_report(date, format):
+    """下载报告文件"""
+    try:
+        if format == 'txt':
+            file_path = data_dir / f"fatigue_report_{date}.txt"
+            mimetype = 'text/plain'
+        else:
+            file_path = data_dir / f"fatigue_report_{date}.html"
+            mimetype = 'text/html'
+            
+        if file_path.exists():
+            return send_file(file_path, mimetype=mimetype, as_attachment=True)
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '文件不存在'
+            })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)

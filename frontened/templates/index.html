@@ -110,11 +110,123 @@
             padding: 10px 20px;
             margin-top: 10px;
         }
+
+        .navbar {
+            justify-content: space-between;
+            padding: 1rem 2rem;
+        }
+
+        .nav-items {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-button {
+            background: none;
+            border: 1px solid white;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-button:hover {
+            background: white;
+            color: #ff8c00;
+        }
+
+        /* 分析弹窗样式 */
+        .analysis-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .analysis-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 70%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .analysis-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .analysis-body {
+            margin-bottom: 20px;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .nav-button {
+            text-decoration: none;
+            cursor: pointer;
+            padding: 8px 16px;
+            background-color: #ff8c00;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .nav-button:hover {
+            background-color: #ff7000;
+        }
     </style>
 </head>
 <body>
     <div class="navbar">
         <div class="navbar-title">Eye Fatigue Detection System</div>
+        <div class="nav-items">
+            <button class="nav-button" id="analyzeBtn">分析报告</button>
+        </div>
+    </div>
+
+    <div id="analysisModal" class="analysis-modal">
+        <div class="analysis-content">
+            <div class="analysis-header">
+                <h2>疲劳数据分析报告</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="analysis-body">
+                <input type="date" id="analysisDate">
+                <button class="nav-button" id="generateReport">生成报告</button>
+                <div id="reportContent" style="margin-top: 20px;"></div>
+                <div class="download-buttons" style="display: none; margin-top: 10px;">
+                    <a class="nav-button" id="downloadTxt" href="#" download>下载TXT</a>
+                    <a class="nav-button" id="downloadHtml" href="#" download>下载HTML</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="main-wrapper">
@@ -244,6 +356,85 @@
         })
         .catch(error => console.error('Error:', error));
     });
+
+        // 添加分析报告相关代码
+        document.addEventListener('DOMContentLoaded', function() {
+            const analysisModal = document.getElementById('analysisModal');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const closeBtn = document.querySelector('.close');
+            const generateReportBtn = document.getElementById('generateReport');
+            const analysisDate = document.getElementById('analysisDate');
+            const reportContent = document.getElementById('reportContent');
+
+            // 设置日期选择器的默认值为今天
+            const today = new Date().toISOString().split('T')[0];
+            analysisDate.value = today;
+
+            // 打开分析弹窗
+            analyzeBtn.onclick = function() {
+                analysisModal.style.display = "block";
+            }
+
+            // 关闭弹窗
+            closeBtn.onclick = function() {
+                analysisModal.style.display = "none";
+            }
+
+            // 点击窗口外关闭弹窗
+            window.onclick = function(event) {
+                if (event.target == analysisModal) {
+                    analysisModal.style.display = "none";
+                }
+            }
+
+            // 生成报告
+            generateReportBtn.onclick = function() {
+                const selectedDate = analysisDate.value.replace(/-/g, '');
+                reportContent.innerHTML = '<p>正在生成报告，请稍候...</p>';
+                document.querySelector('.download-buttons').style.display = 'none';
+
+                fetch(`/analyze/${selectedDate}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // 显示报告内容
+                            reportContent.innerHTML = `
+                                <h3>分析报告</h3>
+                                <div style="white-space: pre-line;">${data.report}</div>
+                            `;
+                            
+                            // 更新下载链接并显示下载按钮
+                            document.getElementById('downloadTxt').href = `/download_report/${selectedDate}/txt`;
+                            document.getElementById('downloadHtml').href = `/download_report/${selectedDate}/html`;
+                            document.querySelector('.download-buttons').style.display = 'flex';
+                        } else {
+                            reportContent.innerHTML = `<p style="color: red;">错误：${data.message}</p>`;
+                            document.querySelector('.download-buttons').style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        reportContent.innerHTML = `<p style="color: red;">生成报告时出错：${error}</p>`;
+                        document.querySelector('.download-buttons').style.display = 'none';
+                    });
+            }
+        
+        window.exportReport = function(format) {
+            const selectedDate = analysisDate.value.replace(/-/g, '');
+            
+            fetch(`/export_report/${selectedDate}/${format}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(`报告已成功导出！\n文件保存在：${data.file_path}`);
+                    } else {
+                        alert('导出失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('导出出错：' + error);
+                });
+        }    
+    });
     </script>
 
 <script>
@@ -271,8 +462,6 @@
             sidebar.style.width = newWidth + 'px';
         }
     }
-
-    // ...existing updateStats and other scripts...
 </script>
 </body>
 </html>
