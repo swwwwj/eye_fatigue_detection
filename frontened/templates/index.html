@@ -4,6 +4,57 @@
     <title>Eye Fatigue Detection</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        .main-wrapper {
+            display: flex;
+            height: calc(100vh - 80px);
+            position: relative;
+        }
+
+        .sidebar {
+            width: 0;
+            background-color: #f8f9fa;
+            transition: width 0.2s;
+            overflow-x: hidden;
+        }
+
+        .resizer {
+            width: 5px;
+            background-color: #ddd;
+            cursor: ew-resize;
+            transition: background-color 0.2s;
+        }
+        
+        .resizer:hover {
+            background-color: #ff8c00;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .container {
+            display: flex;
+            margin: 20px;
+            gap: 20px;
+        }
+
+        .navbar {
+            background-color: #ff8c00;;
+            overflow: hidden;
+            padding: 1rem;
+            color: white;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
         .container {
             display: flex;
             margin: 20px;
@@ -62,15 +113,32 @@
     </style>
 </head>
 <body>
-    <h1>Eye Fatigue Detection System</h1>
-    <div class="container">
-        <div class="video-container">
-            <img src="{{ url_for('video_feed') }}" width="100%">
+    <div class="navbar">
+        <div class="navbar-title">Eye Fatigue Detection System</div>
+    </div>
+
+    <div class="main-wrapper">
+        <!-- 侧栏 -->
+        <div class="sidebar" id="sidebar">
+            <!-- 这里可以添加侧栏内容 -->
+            <h3 style="padding: 15px;">侧栏内容</h3>
         </div>
-        <div class="stats-container">
-            <canvas id="fatigueChart"></canvas>
-            <div id="warning" class="warning">
-                WARNING: High level of severe fatigue detected in the last hour!
+        
+        <!-- 拖动条 -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- 主要内容区域 -->
+        <div class="main-content">
+            <div class="container">
+                <div class="video-container">
+                    <img src="{{ url_for('video_feed') }}" width="100%">
+                </div>
+                <div class="stats-container">
+                    <canvas id="fatigueChart"></canvas>
+                    <div id="warning" class="warning">
+                        WARNING: High level of severe fatigue detected in the last hour!
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -177,5 +245,34 @@
         .catch(error => console.error('Error:', error));
     });
     </script>
+
+<script>
+    // 添加侧栏拖动功能
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
+    
+    resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', function() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleMouseMove);
+        });
+    });
+
+    function handleMouseMove(e) {
+        if (!isResizing) return;
+        
+        const newWidth = e.clientX;
+        const maxWidth = window.innerWidth / 3; // 最大宽度为窗口的1/3
+        
+        if (newWidth <= maxWidth) {
+            sidebar.style.width = newWidth + 'px';
+        }
+    }
+
+    // ...existing updateStats and other scripts...
+</script>
 </body>
 </html>
