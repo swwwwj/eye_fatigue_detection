@@ -87,7 +87,6 @@ def load_data():
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features_array)
     
-    # 保存StandardScaler
     os.makedirs(os.path.dirname(scaler_save_path), exist_ok=True)
     joblib.dump(scaler, scaler_save_path)
     print(f"Saved scaler to: {scaler_save_path}")

@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from RNN import FatigueRNN, FatigueDataset
 
+#数据和模型的路径，按照使用者自己的文件目录
 data_root = "/home/swj/eye_fatigue_detection/data/processed_features"
 model_path = "/home/swj/eye_fatigue_detection/models/fatigue_rnn.pth"
 scaler_path = "/home/swj/eye_fatigue_detection/models/scaler.pkl"
@@ -27,7 +28,6 @@ def load_test_data():
     for file in os.listdir(data_root):
         if file.endswith('_features.npy'):
             feature_path = os.path.join(data_root, file)
-            # 从文件名中提取疲劳等级
             if 'awake' in file:
                 label = 0
             elif 'mild_fatigue' in file:
@@ -60,7 +60,7 @@ def load_test_data():
     print(f"Features shape: {features_array.shape}")
     print(f"Labels shape: {labels_array.shape}")
     
-    # 加载StandardScaler并转换特征
+    #用训练好的scaler进行归一化
     scaler = joblib.load(scaler_path)
     features_scaled = scaler.transform(features_array)
     
@@ -70,7 +70,6 @@ def validate_model():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # 加载模型
     model = FatigueRNN().to(device)
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -78,12 +77,10 @@ def validate_model():
     
     model.eval()
     
-    # 加载测试数据
     X_test, y_test, class_names = load_test_data()
     test_dataset = FatigueDataset(X_test, y_test)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
     
-    # 进行预测
     all_predictions = []
     all_labels = []
     test_loss = 0
@@ -107,17 +104,15 @@ def validate_model():
             all_predictions.extend(predicted.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
     
-    # 打印测试结果
     accuracy = 100 * correct / total
     print(f"\nTest Results:")
     print(f"Average Loss: {test_loss/len(test_loader):.4f}")
     print(f"Accuracy: {accuracy:.2f}%")
     
-    # 打印分类报告
     print("\nClassification Report:")
     print(classification_report(all_labels, all_predictions, target_names=class_names))
     
-    # 绘制混淆矩阵
+    #画图展示test的效果
     cm = confusion_matrix(all_labels, all_predictions)
     plt.figure(figsize=(10,8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 

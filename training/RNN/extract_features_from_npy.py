@@ -7,9 +7,11 @@ from scipy.spatial import distance
 data_root = "/home/swj/eye_fatigue_detection/data/"
 processed_data_root = "/home/swj/eye_fatigue_detection/data/processed_features"
 
+#加载dlib库里的预训练模型进行人脸检测
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('/home/swj/eye_fatigue_detection/models/shape_predictor_68_face_landmarks.dat')
 
+#EAR值，用于计算后面的参数
 def eye_aspect_ratio(eye):
     A = distance.euclidean(eye[1], eye[5])
     B = distance.euclidean(eye[2], eye[4])
@@ -17,9 +19,11 @@ def eye_aspect_ratio(eye):
     ear = (A + B) / (2.0 * C)
     return ear
 
+#perclos为闭眼帧在总帧中的占比
 def perclos(eye_aspect_ratio_sequence, threshold=0.2):
     return sum([1 for ear in eye_aspect_ratio_sequence if ear < threshold]) / len(eye_aspect_ratio_sequence)
 
+#瞳孔运动的距离
 def pupil_motion(pupil_positions):
     distances = [distance.euclidean(pupil_positions[i], pupil_positions[i-1]) for i in range(1, len(pupil_positions))]
     return np.sum(distances)
