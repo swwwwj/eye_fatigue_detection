@@ -84,6 +84,7 @@
     </div>
 
     <script>
+        // 创建图表
         const ctx = document.getElementById('fatigueChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'bar',
@@ -131,11 +132,18 @@
 
         let alertShown = false; // 避免重复弹窗
 
-        // 定期更新统计数据
-        function updateStats() {
-            fetch('/stats')
-                .then(response => response.json())
-                .then(data => {
+    // 定期更新统计数据
+    function updateStats() {
+        fetch('/stats')
+            .then(response => response.json())
+            .then(data => {
+                if(data.warning) {
+                    if(!alertShown) {
+                        document.getElementById('alertModal').style.display = 'block';
+                        alertShown = true;
+                    }
+                } else {
+                    // 若无警告，正常更新图表
                     chart.data.datasets[0].data = [
                         data.stats.awake,
                         data.stats.mild_fatigue,
@@ -143,26 +151,31 @@
                         data.stats.severe_fatigue
                     ];
                     chart.update();
-                    
-                    // 如果 warning 为 true，则显示模态弹窗
-                    if(data.warning) {
-                        if(!alertShown) {
-                            document.getElementById('alertModal').style.display = 'block';
-                            alertShown = true;
-                        }
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
 
-        // 每秒更新一次统计数据
-        setInterval(updateStats, 1000);
+    // 每秒更新一次统计数据
+    setInterval(updateStats, 1000);
 
-        // 点击确定按钮时隐藏弹窗
-        document.getElementById('alertBtn').addEventListener('click', function() {
-            document.getElementById('alertModal').style.display = 'none';
-            alertShown = false;
-        });
+    // 点击"确定"按钮时重置统计数据
+    document.getElementById('alertBtn').addEventListener('click', function() {
+        fetch('/reset_stats', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                document.getElementById('alertModal').style.display = 'none';
+                alertShown = false;
+                // 清除图表数据
+                chart.data.datasets[0].data = [0, 0, 0, 0];
+                chart.update();
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
     </script>
 </body>
 </html>

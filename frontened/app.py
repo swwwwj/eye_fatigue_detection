@@ -208,5 +208,18 @@ def get_stats():
         'warning': warning
     })
 
+# 弹窗后清空后台数据
+@app.route('/reset_stats', methods=['POST'])
+def reset_stats():
+    global fatigue_stats
+    fatigue_stats = {
+        "awake": deque(maxlen=3600),
+        "mild_fatigue": deque(maxlen=3600),
+        "moderate_fatigue": deque(maxlen=3600),
+        "severe_fatigue": deque(maxlen=3600),
+    }
+    return jsonify({'status': 'success'})
+
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
