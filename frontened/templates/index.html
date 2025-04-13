@@ -34,6 +34,31 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        /* 弹窗模态框样式 */
+        .modal {
+            display: none; /* 默认隐藏 */
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        .modal-content button {
+            padding: 10px 20px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -47,6 +72,14 @@
             <div id="warning" class="warning">
                 WARNING: High level of severe fatigue detected in the last hour!
             </div>
+        </div>
+    </div>
+
+    <!-- 弹窗模态框 -->
+    <div id="alertModal" class="modal">
+        <div class="modal-content">
+            <p id="alertMessage">WARNING: High level of severe fatigue detected in the last hour!</p>
+            <button id="alertBtn">确定</button>
         </div>
     </div>
 
@@ -96,6 +129,8 @@
             }
         });
 
+        let alertShown = false; // 避免重复弹窗
+
         // 定期更新统计数据
         function updateStats() {
             fetch('/stats')
@@ -109,14 +144,25 @@
                     ];
                     chart.update();
                     
-                    // 显示或隐藏警告
-                    document.getElementById('warning').style.display = 
-                        data.warning ? 'block' : 'none';
-                });
+                    // 如果 warning 为 true，则显示模态弹窗
+                    if(data.warning) {
+                        if(!alertShown) {
+                            document.getElementById('alertModal').style.display = 'block';
+                            alertShown = true;
+                        }
+                    }
+                })
+                .catch(error => console.error('Error:', error));
         }
 
         // 每秒更新一次统计数据
         setInterval(updateStats, 1000);
+
+        // 点击确定按钮时隐藏弹窗
+        document.getElementById('alertBtn').addEventListener('click', function() {
+            document.getElementById('alertModal').style.display = 'none';
+            alertShown = false;
+        });
     </script>
 </body>
 </html>

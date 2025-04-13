@@ -10,10 +10,10 @@ import dlib
 from collections import deque
 from datetime import datetime, timedelta
 
-# 设置模板路径
-app = Flask(__name__, template_folder="/home/swj/eye_fatigue_detection/frontened/templates")
+# 模板路径
+app = Flask(__name__, template_folder="D:/github/eye_fatigue_detection/frontened/templates")
 
-# 定义判别器网络结构，与训练时一致
+# 定义discriminator判别器结构
 class Discriminator(nn.Module):
     def __init__(self, num_classes=4):
         super(Discriminator, self).__init__()
@@ -54,7 +54,7 @@ class FatigueRNN(nn.Module):
         out = self.fc(out)
         return out
 
-# 设置设备，并加载预训练模型
+# 使用GPU或CPU，调用预训练模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_path = r"D:\github\eye_fatigue_detection\models\best_discriminator.pth"
@@ -68,17 +68,17 @@ checkpoint = torch.load(rnn_model_path, map_location=device)
 fatigue_rnn.load_state_dict(checkpoint["model_state_dict"])
 fatigue_rnn.eval()
 
-# 初始化dlib人脸检测器
+# dlib人脸检测器
 detector = dlib.get_frontal_face_detector()
 
-# 定义图像预处理
+# 图像预处理
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
 ])
 
-# 类别映射字典
+# 类别映射
 class_names = {0: "awake", 1: "mild_fatigue", 2: "moderate_fatigue", 3: "severe_fatigue"}
 
 # 统计数据存储
@@ -88,9 +88,9 @@ fatigue_stats = {
     "moderate_fatigue": deque(maxlen=3600),
     "severe_fatigue": deque(maxlen=3600),
 }
-SEVERE_FATIGUE_THRESHOLD = 50  # 严重疲劳警告阈值
+SEVERE_FATIGUE_THRESHOLD = 2  # 严重疲劳警告阈值
 
-# 打开摄像头
+
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     raise RuntimeError("无法打开摄像头")
@@ -111,17 +111,17 @@ def gen_frames():
         # 人脸检测
         faces = detector(frame)
         
-        # 如果检测到人脸
+
         if len(faces) > 0:
             face = faces[0]  # 使用第一个检测到的人脸
             x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
             
-            # 在原始帧上画出红色框
+            # 框出人脸
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
             
             # 提取人脸区域
             face_img = frame[y1:y2, x1:x2]
-            if face_img.size != 0:  # 确保提取到了有效的人脸图像
+            if face_img.size != 0:  
                 # 转RGB并处理人脸图像
                 rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
                 try:
