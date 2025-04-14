@@ -201,6 +201,31 @@
         .nav-button:hover {
             background-color: #ff7000;
         }
+
+        .chart-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chart-btn {
+            padding: 8px 16px;
+            border: none;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .chart-btn:hover {
+            background-color: #ff8c00;
+            color: white;
+        }
+
+        .chart-btn.active {
+            background-color: #ff8c00;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -232,8 +257,12 @@
     <div class="main-wrapper">
         <!-- 侧栏 -->
         <div class="sidebar" id="sidebar">
-            <!-- 这里可以添加侧栏内容 -->
-            <h3 style="padding: 15px;">侧栏内容</h3>
+            <h3 style="padding: 15px;">数据可视化</h3>
+            <div class="chart_selector" style="padding: 15px;">
+                <button class="chart-btn active" data-type="bar">柱状图</button>
+                <button class="chart-btn" data-type="line">折线图</button>
+                <button class="chart-btn" data-type="pie">饼图</button>
+            </div>
         </div>
         
         <!-- 拖动条 -->
@@ -264,6 +293,103 @@
     </div>
 
     <script>
+        let currentChart = null;
+        const chartData = {
+            labels: ['Awake', 'Mild Fatigue', 'Moderate Fatigue', 'Severe Fatigue'],
+            values: [0, 0, 0, 0]
+        };
+
+        function createChart(type) {
+        if (currentChart) {
+            currentChart.destroy();
+        }
+
+        const ctx = document.getElementById('fatigueChart').getContext('2d');
+        const config = {
+            type: type,
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Fatigue Statistics',
+                    data: type === 'line' ? [1, 2, 3, 4] : chartData.values,
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(255, 159, 64, 0.2)',
+                        'rgba(255, 99, 132, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 159, 64, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1,
+                    tension: type === 'line' ? 0.3 : 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: type !== 'pie' ? {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: type === 'line' ? 'Fatigue Level' : 'Occurrence Count'
+                        }
+                    }
+                } : {},
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Fatigue Level Distribution',
+                        padding: 20
+                    }
+                }
+            }
+        };
+
+        currentChart = new Chart(ctx, config);
+    }
+
+    // 初始化柱状图
+    createChart('bar');
+
+    // 添加按钮点击事件处理
+    document.querySelectorAll('.chart-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            createChart(this.dataset.type);
+        });
+    });
+
+    // 修改更新统计数据的函数
+    function updateStats() {
+        fetch('/stats')
+            .then(response => response.json())
+            .then(data => {
+                chartData.values = [
+                    data.stats.awake,
+                    data.stats.mild_fatigue,
+                    data.stats.moderate_fatigue,
+                    data.stats.severe_fatigue
+                ];
+
+                if (currentChart) {
+                    currentChart.data.datasets[0].data = 
+                        currentChart.config.type === 'line' ? [1, 2, 3, 4] : chartData.values;
+                    currentChart.update();
+                }
+
+                if (data.warning && !alertShown) {
+                    document.getElementById('alertModal').style.display = 'block';
+                    alertShown = true;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
         // 创建图表
         const ctx = document.getElementById('fatigueChart').getContext('2d');
         const chart = new Chart(ctx, {
