@@ -141,8 +141,8 @@ cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     raise RuntimeError("无法打开摄像头")
 
-# 生成视频帧
 def gen_frames():
+    global latest_detection_time, current_fatigue_level
     frame_count = 0
     prob_accumulator = None
     current_label = "N/A"
@@ -157,7 +157,6 @@ def gen_frames():
         # 人脸检测
         faces = detector(frame)
         
-
         if len(faces) > 0:
             face = faces[0]  # 使用第一个检测到的人脸
             x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
@@ -175,17 +174,14 @@ def gen_frames():
                     input_tensor = input_tensor.unsqueeze(0).to(device)
                     
                     with torch.no_grad():
-                        # 模型1：判别器预测
                         output_d = discriminator(input_tensor)
                         prob_d = torch.softmax(output_d, dim=1)
                         
-                        # 模型2：RNN预测
                         pooled = F.adaptive_avg_pool2d(input_tensor, (1, 1))
                         rnn_input = pooled.view(1, 1, 3)
                         output_rnn = fatigue_rnn(rnn_input)
                         prob_rnn = torch.softmax(output_rnn, dim=1)
                         
-                        # 综合两个模型的概率
                         prob_final = (prob_d + prob_rnn) / 2
                     
                     # 累积概率
@@ -201,9 +197,10 @@ def gen_frames():
                         final_class = torch.argmax(avg_prob, dim=1).item()
                         current_label = class_names[final_class]
                         
-                        # 更新统计数据
-                        fatigue_stats[current_label].append(current_time)
+                        latest_detection_time = current_time.strftime('%H:%M:%S')
                         current_fatigue_level = final_class
+                        
+                        fatigue_stats[current_label].append(current_time)
                         save_detection_data(current_time, current_label, avg_prob.cpu().numpy()[0])
                         
                         frame_count = 0
@@ -217,9 +214,12 @@ def gen_frames():
                    (current_time - fatigue_stats[level][0]).total_seconds() > 3600):
                 fatigue_stats[level].popleft()
         
-        # 在图像上显示分类结果
+        # 在图像上显示分类结果和检测时间
         cv2.putText(frame, f'Class: {current_label}', (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        if latest_detection_time:
+            cv2.putText(frame, f'Time: {latest_detection_time}', (10, 60),
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         
         # 编码为JPEG格式
         ret, buffer = cv2.imencode('.jpg', frame)
@@ -264,10 +264,11 @@ def get_stats():
     return jsonify({
         'stats': stats,
         'warning': warning,
-        'current_level': current_level  # 新增此字段
+        'current_level': current_level,
+        'detection_time': latest_detection_time if 'latest_detection_time' in globals() else None
     })
 
-# 弹窗后清空后台数据
+
 @app.route('/reset_stats', methods=['POST'])
 def reset_stats():
     global fatigue_stats
