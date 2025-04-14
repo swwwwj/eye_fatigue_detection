@@ -200,6 +200,7 @@ def gen_frames():
                         final_class = torch.argmax(avg_prob, dim=1).item()
                         current_label = class_names[final_class]
                         
+                        global current_fatigue_level, latest_detection_time
                         latest_detection_time = current_time.strftime('%H:%M:%S')
                         current_fatigue_level = final_class
                         
@@ -243,32 +244,28 @@ def video_feed():
 @app.route('/stats')
 def get_stats():
     current_time = datetime.now()
-    ten_min_ago = current_time - timedelta(minutes=10)
     
     # 计算最近10分钟的统计
     stats = {
         level: sum(1 for t in times if (current_time - t).total_seconds() <= 600)
         for level, times in fatigue_stats.items()
     }
-    
-    # 获取当前疲劳等级（0-3）
-    current_level = 0  # 默认为清醒
-    max_count = 0
-    for i, level in enumerate(['awake', 'mild_fatigue', 'moderate_fatigue', 'severe_fatigue']):
-        if stats[level] > max_count:
-            max_count = stats[level]
-            current_level = i
+
+    global current_fatigue_level, latest_detection_time
     
     # 检查是否需要发出警告
     warning = (sum(1 for t in fatigue_stats['severe_fatigue'] 
               if (current_time - t).total_seconds() <= 3600) 
               >= SEVERE_FATIGUE_THRESHOLD)
     
+    current_level = current_fatigue_level if current_fatigue_level is not None else 0
+    detection_time = latest_detection_time if latest_detection_time is not None else current_time.strftime('%H:%M:%S')
+    
     return jsonify({
         'stats': stats,
         'warning': warning,
-        'current_level': current_level,
-        'detection_time': latest_detection_time if 'latest_detection_time' in globals() else None
+        'current_level': current_fatigue_level if current_fatigue_level is not None else 0,
+        'detection_time': latest_detection_time
     })
 
 

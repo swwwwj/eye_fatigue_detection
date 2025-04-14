@@ -340,6 +340,54 @@
             // 开始定时更新数据
             setInterval(updateStats, 1000);
         });
+
+        function updateStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // 更新统计数据
+                    chartData.values = [
+                        data.stats.awake,
+                        data.stats.mild_fatigue,
+                        data.stats.moderate_fatigue,
+                        data.stats.severe_fatigue
+                    ];
+
+                    // 检查是否有新的检测结果
+                    if (data.current_level !== null && data.detection_time) {
+                        const currentLevel = data.current_level + 1;  // 转换为1-4
+                        const currentTime = data.detection_time;
+                        
+                        // 每次检测都添加新的数据点
+                        timeSeriesData.timestamps.push(currentTime);
+                        timeSeriesData.values.push(currentLevel);
+
+                        // 保持最近15个数据点
+                        if (timeSeriesData.timestamps.length > 15) {
+                            timeSeriesData.timestamps.shift();
+                            timeSeriesData.values.shift();
+                        }
+                    }
+
+                    // 更新当前图表
+                    if (currentChart) {
+                        if (currentChart.config.type === 'line') {
+                            currentChart.data.labels = timeSeriesData.timestamps;
+                            currentChart.data.datasets[0].data = timeSeriesData.values;
+                        } else {
+                            currentChart.data.datasets[0].data = chartData.values;
+                        }
+                        currentChart.update();
+                    }
+
+                    // 检查警告
+                    if (data.warning && !alertShown) {
+                        document.getElementById('alertModal').style.display = 'block';
+                        alertShown = true;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
     
         function createChart(type) {
             if (currentChart) {
@@ -441,56 +489,7 @@
             currentChart = new Chart(ctx, config);
         }
     
-        function updateStats() {
-    fetch('/stats')
-        .then(response => response.json())
-        .then(data => {
-            // 更新统计数据
-            chartData.values = [
-                data.stats.awake,
-                data.stats.mild_fatigue,
-                data.stats.moderate_fatigue,
-                data.stats.severe_fatigue
-            ];
-
-            // 只在有新的检测结果时更新折线图数据
-            if (data.current_level !== undefined && data.detection_time) {
-                const currentLevel = data.current_level + 1;  // 转换为1-4
-                
-                // 检查是否与上一个检测结果不同或者是第一个数据点
-                if (timeSeriesData.values.length === 0 || 
-                    currentLevel !== timeSeriesData.values[timeSeriesData.values.length - 1]) {
-                    
-                    timeSeriesData.timestamps.push(data.detection_time);
-                    timeSeriesData.values.push(currentLevel);
-
-                    // 保持最近15个检测点的数据
-                    if (timeSeriesData.timestamps.length > 15) {
-                        timeSeriesData.timestamps.shift();
-                        timeSeriesData.values.shift();
-                    }
-                }
-            }
-
-            // 更新当前图表
-            if (currentChart) {
-                if (currentChart.config.type === 'line') {
-                    currentChart.data.labels = timeSeriesData.timestamps;
-                    currentChart.data.datasets[0].data = timeSeriesData.values;
-                } else {
-                    currentChart.data.datasets[0].data = chartData.values;
-                }
-                currentChart.update();
-            }
-
-            // 检查警告
-            if (data.warning && !alertShown) {
-                document.getElementById('alertModal').style.display = 'block';
-                alertShown = true;
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
+        
     
         function initializeAnalysis() {
             const analysisModal = document.getElementById('analysisModal');
