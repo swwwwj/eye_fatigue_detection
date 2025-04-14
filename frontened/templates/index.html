@@ -294,258 +294,252 @@
 
     <script>
         let currentChart = null;
+        let timeSeriesData = {
+            timestamps: [],
+            values: []
+        };
         const chartData = {
             labels: ['Awake', 'Mild Fatigue', 'Moderate Fatigue', 'Severe Fatigue'],
             values: [0, 0, 0, 0]
         };
-
+        let alertShown = false;
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化图表
+            createChart('bar');
+    
+            // 添加图表切换按钮事件
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    createChart(this.dataset.type);
+                });
+            });
+    
+            // 添加报警确认按钮事件
+            document.getElementById('alertBtn').addEventListener('click', function() {
+                fetch('/reset_stats', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        document.getElementById('alertModal').style.display = 'none';
+                        alertShown = false;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+    
+            // 初始化分析功能
+            initializeAnalysis();
+    
+            // 开始定时更新数据
+            setInterval(updateStats, 1000);
+        });
+    
         function createChart(type) {
-        if (currentChart) {
-            currentChart.destroy();
+            if (currentChart) {
+                currentChart.destroy();
+            }
+    
+            const ctx = document.getElementById('fatigueChart').getContext('2d');
+            let config;
+    
+            if (type === 'line') {
+                config = {
+                    type: 'line',
+                    data: {
+                        labels: timeSeriesData.timestamps,
+                        datasets: [{
+                            label: 'Fatigue Level Over Time',
+                            data: timeSeriesData.values,
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 4,
+                                ticks: {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                        return ['', 'Awake', 'Mild', 'Moderate', 'Severe'][value];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            } else if (type === 'pie') {
+                config = {
+                    type: 'pie',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            data: chartData.values,
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.8)',
+                                'rgba(255, 206, 86, 0.8)',
+                                'rgba(255, 159, 64, 0.8)',
+                                'rgba(255, 99, 132, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                };
+            } else {
+                config = {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            label: 'Fatigue Statistics',
+                            data: chartData.values,
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(255, 159, 64, 0.2)',
+                                'rgba(255, 99, 132, 0.2)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(255, 159, 64, 1)',
+                                'rgba(255, 99, 132, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Occurrence Count'
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+    
+            currentChart = new Chart(ctx, config);
         }
-
-        const ctx = document.getElementById('fatigueChart').getContext('2d');
-        const config = {
-            type: type,
-            data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: 'Fatigue Statistics',
-                    data: type === 'line' ? [1, 2, 3, 4] : chartData.values,
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.2)',
-                        'rgba(255, 206, 86, 0.2)',
-                        'rgba(255, 159, 64, 0.2)',
-                        'rgba(255, 99, 132, 0.2)'
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(255, 159, 64, 1)',
-                        'rgba(255, 99, 132, 1)'
-                    ],
-                    borderWidth: 1,
-                    tension: type === 'line' ? 0.3 : 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: type !== 'pie' ? {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: type === 'line' ? 'Fatigue Level' : 'Occurrence Count'
-                        }
-                    }
-                } : {},
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Fatigue Level Distribution',
-                        padding: 20
-                    }
-                }
-            }
-        };
-
-        currentChart = new Chart(ctx, config);
-    }
-
-    // 初始化柱状图
-    createChart('bar');
-
-    // 添加按钮点击事件处理
-    document.querySelectorAll('.chart-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            createChart(this.dataset.type);
-        });
-    });
-
-    // 修改更新统计数据的函数
-    function updateStats() {
-        fetch('/stats')
-            .then(response => response.json())
-            .then(data => {
-                chartData.values = [
-                    data.stats.awake,
-                    data.stats.mild_fatigue,
-                    data.stats.moderate_fatigue,
-                    data.stats.severe_fatigue
-                ];
-
-                if (currentChart) {
-                    currentChart.data.datasets[0].data = 
-                        currentChart.config.type === 'line' ? [1, 2, 3, 4] : chartData.values;
-                    currentChart.update();
-                }
-
-                if (data.warning && !alertShown) {
-                    document.getElementById('alertModal').style.display = 'block';
-                    alertShown = true;
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
-        // 创建图表
-        const ctx = document.getElementById('fatigueChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Awake', 'Mild Fatigue', 'Moderate Fatigue', 'Severe Fatigue'],
-                datasets: [{
-                    label: 'Last 10 Minutes Fatigue Statistics',
-                    data: [0, 0, 0, 0],
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.2)',
-                        'rgba(255, 206, 86, 0.2)',
-                        'rgba(255, 159, 64, 0.2)',
-                        'rgba(255, 99, 132, 0.2)'
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(255, 159, 64, 1)',
-                        'rgba(255, 99, 132, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Occurrence Count'
-                        }
-                    }
-                },
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Fatigue Level Distribution (Last 10 Minutes)',
-                        padding: 20
-                    }
-                }
-            }
-        });
-
-        let alertShown = false; // 避免重复弹窗
-
-    // 定期更新统计数据
-    function updateStats() {
-        fetch('/stats')
-            .then(response => response.json())
-            .then(data => {
-                if(data.warning) {
-                    if(!alertShown) {
-                        document.getElementById('alertModal').style.display = 'block';
-                        alertShown = true;
-                    }
-                } else {
-                    // 若无警告，正常更新图表
-                    chart.data.datasets[0].data = [
+    
+        function updateStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // 更新统计数据
+                    chartData.values = [
                         data.stats.awake,
                         data.stats.mild_fatigue,
                         data.stats.moderate_fatigue,
                         data.stats.severe_fatigue
                     ];
-                    chart.update();
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-    // 每秒更新一次统计数据
-    setInterval(updateStats, 1000);
-
-    // 点击"确定"按钮时重置统计数据
-    document.getElementById('alertBtn').addEventListener('click', function() {
-        fetch('/reset_stats', {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.status === 'success') {
-                document.getElementById('alertModal').style.display = 'none';
-                alertShown = false;
-                // 清除图表数据
-                chart.data.datasets[0].data = [0, 0, 0, 0];
-                chart.update();
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    });
-
-        // 添加分析报告相关代码
-        document.addEventListener('DOMContentLoaded', function() {
+    
+                    // 更新时间序列数据
+                    const currentTime = new Date().toLocaleTimeString();
+                    const currentLevel = data.current_level + 1; // 转换为1-4
+                    
+                    timeSeriesData.timestamps.push(currentTime);
+                    timeSeriesData.values.push(currentLevel);
+    
+                    // 保持最近30个数据点
+                    if (timeSeriesData.timestamps.length > 30) {
+                        timeSeriesData.timestamps.shift();
+                        timeSeriesData.values.shift();
+                    }
+    
+                    // 更新当前图表
+                    if (currentChart) {
+                        if (currentChart.config.type === 'line') {
+                            currentChart.data.labels = timeSeriesData.timestamps;
+                            currentChart.data.datasets[0].data = timeSeriesData.values;
+                        } else {
+                            currentChart.data.datasets[0].data = chartData.values;
+                        }
+                        currentChart.update();
+                    }
+    
+                    // 检查警告
+                    if (data.warning && !alertShown) {
+                        document.getElementById('alertModal').style.display = 'block';
+                        alertShown = true;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    
+        function initializeAnalysis() {
             const analysisModal = document.getElementById('analysisModal');
             const analyzeBtn = document.getElementById('analyzeBtn');
             const closeBtn = document.querySelector('.close');
             const generateReportBtn = document.getElementById('generateReport');
             const analysisDate = document.getElementById('analysisDate');
             const reportContent = document.getElementById('reportContent');
-
+    
             // 设置日期选择器的默认值为今天
             const today = new Date().toISOString().split('T')[0];
             analysisDate.value = today;
-
-            // 打开分析弹窗
-            analyzeBtn.onclick = function() {
-                analysisModal.style.display = "block";
-            }
-
-            // 关闭弹窗
-            closeBtn.onclick = function() {
-                analysisModal.style.display = "none";
-            }
-
-            // 点击窗口外关闭弹窗
-            window.onclick = function(event) {
+    
+            // 按钮事件处理
+            analyzeBtn.onclick = () => analysisModal.style.display = "block";
+            closeBtn.onclick = () => analysisModal.style.display = "none";
+            window.onclick = (event) => {
                 if (event.target == analysisModal) {
                     analysisModal.style.display = "none";
                 }
-            }
-
-            // 生成报告
+            };
+    
             generateReportBtn.onclick = function() {
                 const selectedDate = analysisDate.value.replace(/-/g, '');
                 reportContent.innerHTML = '<p>正在生成报告，请稍候...</p>';
                 document.querySelector('.download-buttons').style.display = 'none';
-
-                fetch(`/analyze/${selectedDate}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            // 显示报告内容
-                            reportContent.innerHTML = `
-                                <h3>分析报告</h3>
-                                <div style="white-space: pre-line;">${data.report}</div>
-                            `;
-                            
-                            // 更新下载链接并显示下载按钮
-                            document.getElementById('downloadTxt').href = `/download_report/${selectedDate}/txt`;
-                            document.getElementById('downloadHtml').href = `/download_report/${selectedDate}/html`;
-                            document.querySelector('.download-buttons').style.display = 'flex';
-                        } else {
-                            reportContent.innerHTML = `<p style="color: red;">错误：${data.message}</p>`;
-                            document.querySelector('.download-buttons').style.display = 'none';
-                        }
-                    })
-                    .catch(error => {
-                        reportContent.innerHTML = `<p style="color: red;">生成报告时出错：${error}</p>`;
+    
+                generateReport(selectedDate);
+            };
+        }
+    
+        function generateReport(date) {
+            fetch(`/analyze/${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        reportContent.innerHTML = `
+                            <h3>分析报告</h3>
+                            <div style="white-space: pre-line;">${data.report}</div>
+                        `;
+                        
+                        document.getElementById('downloadTxt').href = `/download_report/${date}/txt`;
+                        document.getElementById('downloadHtml').href = `/download_report/${date}/html`;
+                        document.querySelector('.download-buttons').style.display = 'flex';
+                    } else {
+                        reportContent.innerHTML = `<p style="color: red;">错误：${data.message}</p>`;
                         document.querySelector('.download-buttons').style.display = 'none';
-                    });
-            }
-        
+                    }
+                })
+                .catch(error => {
+                    reportContent.innerHTML = `<p style="color: red;">生成报告时出错：${error}</p>`;
+                    document.querySelector('.download-buttons').style.display = 'none';
+                });
+        }
+    
         window.exportReport = function(format) {
-            const selectedDate = analysisDate.value.replace(/-/g, '');
+            const selectedDate = document.getElementById('analysisDate').value.replace(/-/g, '');
             
             fetch(`/export_report/${selectedDate}/${format}`)
                 .then(response => response.json())
@@ -559,8 +553,7 @@
                 .catch(error => {
                     alert('导出出错：' + error);
                 });
-        }    
-    });
+        };
     </script>
 
 <script>

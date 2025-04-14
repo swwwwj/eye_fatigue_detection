@@ -247,6 +247,14 @@ def get_stats():
         for level, times in fatigue_stats.items()
     }
     
+    # 获取当前疲劳等级（0-3）
+    current_level = 0  # 默认为清醒
+    max_count = 0
+    for i, level in enumerate(['awake', 'mild_fatigue', 'moderate_fatigue', 'severe_fatigue']):
+        if stats[level] > max_count:
+            max_count = stats[level]
+            current_level = i
+    
     # 检查是否需要发出警告
     warning = (sum(1 for t in fatigue_stats['severe_fatigue'] 
               if (current_time - t).total_seconds() <= 3600) 
@@ -254,7 +262,8 @@ def get_stats():
     
     return jsonify({
         'stats': stats,
-        'warning': warning
+        'warning': warning,
+        'current_level': current_level  # 新增此字段
     })
 
 # 弹窗后清空后台数据
