@@ -203,6 +203,7 @@ def gen_frames():
                         
                         # 更新统计数据
                         fatigue_stats[current_label].append(current_time)
+                        current_fatigue_level = final_class
                         save_detection_data(current_time, current_label, avg_prob.cpu().numpy()[0])
                         
                         frame_count = 0

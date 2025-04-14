@@ -204,26 +204,28 @@
 
         .chart-selector {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            flex-direction: column;  /* 改为竖直排列 */
+            gap: 10px;              /* 按钮之间的间距 */
+            padding: 15px;
         }
 
         .chart-btn {
-            padding: 8px 16px;
+            padding: 10px 20px;
             border: none;
             background-color: #f0f0f0;
             cursor: pointer;
             border-radius: 4px;
             transition: all 0.3s;
+            width: 100%;           /* 按钮宽度占满容器 */
+            text-align: left;      /* 文字左对齐 */
         }
 
         .chart-btn:hover {
-            background-color: #ff8c00;
-            color: white;
+            background-color: #e0e0e0;
         }
 
         .chart-btn.active {
-            background-color: #ff8c00;
+            background-color: #4CAF50;
             color: white;
         }
     </style>
@@ -451,17 +453,17 @@
                         data.stats.severe_fatigue
                     ];
     
-                    // 更新时间序列数据
-                    const currentTime = new Date().toLocaleTimeString();
-                    const currentLevel = data.current_level + 1; // 转换为1-4
-                    
-                    timeSeriesData.timestamps.push(currentTime);
-                    timeSeriesData.values.push(currentLevel);
-    
-                    // 保持最近30个数据点
-                    if (timeSeriesData.timestamps.length > 30) {
-                        timeSeriesData.timestamps.shift();
-                        timeSeriesData.values.shift();
+                    if (data.current_level !== undefined) {
+                        const currentTime = new Date().toLocaleTimeString();
+                        const currentLevel = data.current_level + 1;
+                
+                        timeSeriesData.timestamps.push(currentTime);
+                        timeSeriesData.values.push(currentLevel);
+
+                        if (timeSeriesData.timestamps.length > 30) {
+                            timeSeriesData.timestamps.shift();
+                            timeSeriesData.values.shift();
+                        }
                     }
     
                     // 更新当前图表
