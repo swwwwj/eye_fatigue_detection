@@ -13,6 +13,9 @@ import pandas as pd
 from pathlib  import Path
 from data_analysis import FatigueDataAnalyzer
 
+latest_detection_time = None
+current_fatigue_level = None
+
 # 数据存放路径
 data_dir = Path("E:/data/eye_data")
 data_dir.mkdir(parents=True, exist_ok=True)
