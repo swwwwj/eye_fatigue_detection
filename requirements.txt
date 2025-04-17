@@ -1,0 +1,14 @@
+flask
+torch
+torchvision
+opencv-python
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+joblib
+requests
+dlib
+Pillow
+jsonlib-python3
