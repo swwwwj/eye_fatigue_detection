@@ -12,16 +12,24 @@ from datetime import datetime, timedelta
 import pandas as pd
 from pathlib  import Path
 from data_analysis import FatigueDataAnalyzer
+import argparse
 
 latest_detection_time = None
 current_fatigue_level = None
 
+# 解析命令行参数
+parser = argparse.ArgumentParser(description="Eye Fatigue Detection System")
+parser.add_argument("--model_dir", type=str, required=True, help="模型存储路径，例如 D:/github/eye_fatigue_detection/models")
+parser.add_argument("--data_dir", type=str, required=True, help="数据存储路径，例如 E:/data/eye_data")
+parser.add_argument("--template_dir", type=str, required=True, help="HTML 模板路径，例如 D:/github/eye_fatigue_detection/frontened/templates")
+args = parser.parse_args()
+
 # 数据存放路径
-data_dir = Path("E:/data/eye_data")
+data_dir = Path(args.data_dir)
 data_dir.mkdir(parents=True, exist_ok=True)
 
 # 模板路径
-app = Flask(__name__, template_folder="D:/github/eye_fatigue_detection/frontened/templates")
+app = Flask(__name__, template_folder=args.template_dir)
 
 # 定义discriminator判别器结构
 class Discriminator(nn.Module):
@@ -106,12 +114,12 @@ def save_detection_data(timestamp, label, probabilities):
 # 使用GPU或CPU，调用预训练模型
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model_path = r"D:\github\eye_fatigue_detection\models\best_discriminator.pth"
+model_path = os.path.join(args.model_dir, "best_discriminator.pth")
 discriminator = Discriminator().to(device)
 discriminator.load_state_dict(torch.load(model_path, map_location=device))
 discriminator.eval()
 
-rnn_model_path = r"D:\github\eye_fatigue_detection\models\fatigue_rnn.pth"
+rnn_model_path = os.path.join(args.model_dir, "fatigue_rnn.pth")
 fatigue_rnn = FatigueRNN().to(device)
 checkpoint = torch.load(rnn_model_path, map_location=device)
 fatigue_rnn.load_state_dict(checkpoint["model_state_dict"])
