@@ -77,7 +77,6 @@ def save_detection_data(timestamp, label, probabilities):
     filename = data_dir / f"fatigue_data_{timestamp.strftime('%Y%m%d')}.csv"
     current_time = timestamp
     
-    # 准备新数据
     new_data = {
         'timestamp': [timestamp],
         'label': [label],
@@ -89,7 +88,6 @@ def save_detection_data(timestamp, label, probabilities):
     
     try:
         if filename.exists():
-            # 读取现有数据并转换时间戳
             df = pd.read_csv(filename)
             df['timestamp'] = pd.to_datetime(df['timestamp'])
             
@@ -97,12 +95,10 @@ def save_detection_data(timestamp, label, probabilities):
             one_hour_ago = current_time - timedelta(hours=1)
             df = df[df['timestamp'] >= one_hour_ago]
             
-            # 添加新数据
             new_df = pd.DataFrame(new_data)
             df = pd.concat([df, new_df], ignore_index=True)
             
         else:
-            # 创建新文件
             df = pd.DataFrame(new_data)
         
         # 保存数据
@@ -165,7 +161,6 @@ def gen_frames():
             
         current_time = datetime.now()
         
-        # 人脸检测
         faces = detector(frame)
         
         if len(faces) > 0:
@@ -252,8 +247,7 @@ def video_feed():
 @app.route('/stats')
 def get_stats():
     current_time = datetime.now()
-    
-    # 计算最近10分钟的统计
+
     stats = {
         level: sum(1 for t in times if (current_time - t).total_seconds() <= 600)
         for level, times in fatigue_stats.items()

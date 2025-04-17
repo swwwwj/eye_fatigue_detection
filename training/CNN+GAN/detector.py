@@ -28,7 +28,6 @@ class Discriminator(nn.Module):
         x = x.view(x.size(0), -1)
         return self.fc_layers(x)
 
-# 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 加载预训练的判别器模型
@@ -37,8 +36,7 @@ discriminator = Discriminator().to(device)
 discriminator.load_state_dict(torch.load(model_path, map_location=device))
 discriminator.eval()
 
-# 定义预处理：将 OpenCV 读取的图像（BGR ndarray）转换为 PIL Image，
-# 调整尺寸到 (64, 64) 并转换为 Tensor
+# 预处理
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((64, 64)),
@@ -58,10 +56,10 @@ while True:
         print("无法读取摄像头帧")
         break
 
-    # 转换图像为 RGB 格式以适配 PILImage 转换
+    # 转换图像为 RGB 
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     input_tensor = transform(rgb_frame)
-    input_tensor = input_tensor.unsqueeze(0).to(device)  # 扩展 batch 维度
+    input_tensor = input_tensor.unsqueeze(0).to(device)  
 
     with torch.no_grad():
         output = discriminator(input_tensor)

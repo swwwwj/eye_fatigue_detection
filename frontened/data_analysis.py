@@ -59,7 +59,7 @@ class FatigueDataAnalyzer:
         }
         
         data = {
-            "model": "moonshot-v1-8k",  # Kimi 的模型名称
+            "model": "moonshot-v1-8k",  
             "messages": [
                 {
                     "role": "system",
@@ -76,14 +76,12 @@ class FatigueDataAnalyzer:
         
         try:
             response = requests.post(self.api_url, headers=headers, json=data)
-            
-            # 检查响应状态码
+
             if response.status_code != 200:
                 print(f"API 请求失败，状态码: {response.status_code}")
                 print(f"响应内容: {response.text}")
                 return f"API 请求失败: HTTP {response.status_code}"
-                
-            # 尝试解析 JSON
+
             try:
                 result = response.json()
                 if 'choices' in result and len(result['choices']) > 0:
@@ -106,10 +104,8 @@ class FatigueDataAnalyzer:
     def generate_analysis_report(self, date_str):
         """生成指定日期的分析报告"""
         try:
-            # 验证日期格式
             date = datetime.strptime(date_str, '%Y%m%d')
             
-            # 读取数据
             df = self._read_data(date_str)
             if df is None:
                 return {
@@ -117,7 +113,6 @@ class FatigueDataAnalyzer:
                     'message': '无法读取指定日期的数据'
                 }
             
-            # 生成提示并调用 API
             prompt = self._generate_report_prompt(df)
             report = self._call_Kimi_api(prompt)
             
@@ -188,7 +183,7 @@ class FatigueDataAnalyzer:
                 'status': 'error',
                 'message': f'导出报告失败: {str(e)}'
             }
-# 使用示例
+        
 if __name__ == "__main__":
     analyzer = FatigueDataAnalyzer("your_api_key_here")
     result = analyzer.generate_analysis_report("20250413")

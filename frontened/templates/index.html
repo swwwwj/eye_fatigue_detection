@@ -85,9 +85,8 @@
             text-align: center;
             margin-bottom: 30px;
         }
-        /* 弹窗模态框样式 */
         .modal {
-            display: none; /* 默认隐藏 */
+            display: none;
             position: fixed;
             z-index: 1;
             left: 0;
@@ -137,7 +136,6 @@
             color: #ff8c00;
         }
 
-        /* 分析弹窗样式 */
         .analysis-modal {
             display: none;
             position: fixed;
@@ -204,8 +202,8 @@
 
         .chart-selector {
             display: flex;
-            flex-direction: column;  /* 改为竖直排列 */
-            gap: 10px;              /* 按钮之间的间距 */
+            flex-direction: column;  
+            gap: 10px;              
             padding: 15px;
         }
 
@@ -216,8 +214,8 @@
             cursor: pointer;
             border-radius: 4px;
             transition: all 0.3s;
-            width: 100%;           /* 按钮宽度占满容器 */
-            text-align: left;      /* 文字左对齐 */
+            width: 100%;           
+            text-align: left;      
         }
 
         .chart-btn:hover {
@@ -257,7 +255,6 @@
     </div>
 
     <div class="main-wrapper">
-        <!-- 侧栏 -->
         <div class="sidebar" id="sidebar">
             <h3 style="padding: 15px;">数据可视化</h3>
             <div class="chart_selector" style="padding: 15px;">
@@ -266,11 +263,9 @@
                 <button class="chart-btn" data-type="pie">饼图</button>
             </div>
         </div>
-        
-        <!-- 拖动条 -->
+
         <div class="resizer" id="resizer"></div>
 
-        <!-- 主要内容区域 -->
         <div class="main-content">
             <div class="container">
                 <div class="video-container">
@@ -286,7 +281,6 @@
         </div>
     </div>
 
-    <!-- 弹窗模态框 -->
     <div id="alertModal" class="modal">
         <div class="modal-content">
             <p id="alertMessage">WARNING: High level of severe fatigue detected in the last hour!</p>
@@ -307,10 +301,8 @@
         let alertShown = false;
     
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化图表
             createChart('bar');
     
-            // 添加图表切换按钮事件
             document.querySelectorAll('.chart-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
@@ -319,7 +311,6 @@
                 });
             });
     
-            // 添加报警确认按钮事件
             document.getElementById('alertBtn').addEventListener('click', function() {
                 fetch('/reset_stats', {
                     method: 'POST'
@@ -333,11 +324,9 @@
                 })
                 .catch(error => console.error('Error:', error));
             });
-    
-            // 初始化分析功能
+
             initializeAnalysis();
-    
-            // 开始定时更新数据
+
             setInterval(updateStats, 1000);
         });
 
@@ -345,7 +334,6 @@
             fetch('/stats')
                 .then(response => response.json())
                 .then(data => {
-                    // 更新统计数据
                     chartData.values = [
                         data.stats.awake,
                         data.stats.mild_fatigue,
@@ -353,23 +341,19 @@
                         data.stats.severe_fatigue
                     ];
 
-                    // 检查是否有新的检测结果
                     if (data.current_level !== null && data.detection_time) {
-                        const currentLevel = data.current_level + 1;  // 转换为1-4
+                        const currentLevel = data.current_level + 1;  
                         const currentTime = data.detection_time;
-                        
-                        // 每次检测都添加新的数据点
+
                         timeSeriesData.timestamps.push(currentTime);
                         timeSeriesData.values.push(currentLevel);
 
-                        // 保持最近15个数据点
                         if (timeSeriesData.timestamps.length > 15) {
                             timeSeriesData.timestamps.shift();
                             timeSeriesData.values.shift();
                         }
                     }
 
-                    // 更新当前图表
                     if (currentChart) {
                         if (currentChart.config.type === 'line') {
                             currentChart.data.labels = timeSeriesData.timestamps;
@@ -380,7 +364,6 @@
                         currentChart.update();
                     }
 
-                    // 检查警告
                     if (data.warning && !alertShown) {
                         document.getElementById('alertModal').style.display = 'block';
                         alertShown = true;
@@ -503,7 +486,7 @@
             const today = new Date().toISOString().split('T')[0];
             analysisDate.value = today;
     
-            // 按钮事件处理
+            // 按钮
             analyzeBtn.onclick = () => analysisModal.style.display = "block";
             closeBtn.onclick = () => analysisModal.style.display = "none";
             window.onclick = (event) => {
