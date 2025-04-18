@@ -141,8 +141,8 @@ fatigue_stats = {
     "moderate_fatigue": deque(maxlen=3600),
     "severe_fatigue": deque(maxlen=3600),
 }
-SEVERE_FATIGUE_THRESHOLD = 50  # 严重疲劳警告阈值
-
+SEVERE_FATIGUE_THRESHOLD = 2  # 严重疲劳警告阈值
+MODERATE_FATIGUE_THRESHOLD = 10  # 中度疲劳警告阈值
 
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
@@ -254,11 +254,21 @@ def get_stats():
     }
 
     global current_fatigue_level, latest_detection_time
+
+    severe_warning = (sum(1 for t in fatigue_stats['severe_fatigue'] 
+                     if (current_time - t).total_seconds() <= 3600) 
+                     >= SEVERE_FATIGUE_THRESHOLD)
     
-    # 检查是否需要发出警告
-    warning = (sum(1 for t in fatigue_stats['severe_fatigue'] 
-              if (current_time - t).total_seconds() <= 3600) 
-              >= SEVERE_FATIGUE_THRESHOLD)
+    moderate_warning = (sum(1 for t in fatigue_stats['moderate_fatigue']
+                       if (current_time - t).total_seconds() <= 3600)
+                       >= MODERATE_FATIGUE_THRESHOLD)
+    
+    warning = severe_warning or moderate_warning 
+    warning_type = None
+    if severe_warning:
+        warning_type = 'severe'
+    elif moderate_warning:
+        warning_type = 'moderate'
     
     current_level = current_fatigue_level if current_fatigue_level is not None else 0
     detection_time = latest_detection_time if latest_detection_time is not None else current_time.strftime('%H:%M:%S')
@@ -266,6 +276,7 @@ def get_stats():
     return jsonify({
         'stats': stats,
         'warning': warning,
+        'warning_type': warning_type,
         'current_level': current_fatigue_level if current_fatigue_level is not None else 0,
         'detection_time': latest_detection_time
     })
