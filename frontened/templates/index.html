@@ -301,6 +301,7 @@
                 <div class="video-container">
                     <video id="videoElement" autoplay style="display:none;"></video>
                     <canvas id="canvasElement"></canvas>
+                    <div id="statusMessage"></div>
                 </div>
                 <div class="stats-container">
                     <canvas id="fatigueChart"></canvas>
@@ -608,28 +609,39 @@
 const video = document.getElementById('videoElement');
 const canvas = document.getElementById('canvasElement');
 const ctx = canvas.getContext('2d');
+const statusMessage = document.getElementById('statusMessage');
 
-// 请求摄像头权限并开始视频流
 async function startVideo() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: 640,
-                height: 480
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: "user"
             }
         });
+        
         video.srcObject = stream;
-        startFrameCapture();
+        video.onloadedmetadata = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            video.play();
+            startFrameCapture();
+        };
     } catch (err) {
-        console.error("无法访问摄像头:", err);
+        console.error("摄像头访问错误:", err);
+        statusMessage.innerHTML = `
+            <div style="color: red; padding: 10px;">
+                无法访问摄像头，请确保：<br>
+                1. 允许浏览器访问摄像头<br>
+                2. 设备摄像头工作正常
+            </div>
+        `;
     }
 }
 
-// 定期捕获视频帧并发送到服务器
 function startFrameCapture() {
     setInterval(() => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
         
         canvas.toBlob((blob) => {
@@ -642,44 +654,33 @@ function startFrameCapture() {
             })
             .then(response => response.json())
             .then(data => {
-                // 清除之前的绘制内容
-                ctx.drawImage(video, 0, 0);
-                
-                // 如果检测到人脸，绘制人脸框
-                if (data.face_rect) {
-                    const [x1, y1, x2, y2] = data.face_rect;
-                    ctx.strokeStyle = '#ff0000';  // 改为红色
-                    ctx.lineWidth = 3;           // 增加线条宽度为3
-                    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-                }
-                
-                // 显示检测结果
-                if (data.label) {
-                    // 添加文本背景
-                    const text = `当前状态: ${data.label} (${data.time})`;
-                    ctx.font = '16px Arial';
-                    const textWidth = ctx.measureText(text).width;
+                if (data.status === 'success') {
+                    if (data.face_rect) {
+                        const [x1, y1, x2, y2] = data.face_rect;
+                        ctx.strokeStyle = '#ff0000';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                    }
                     
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                    ctx.fillRect(10, 10, textWidth + 20, 30);
-                    
-                    // 添加文本
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(text, 20, 30);
+                    // 显示检测结果
+                    statusMessage.innerHTML = `
+                        <div style="background: rgba(0,0,0,0.7); color: white; 
+                             padding: 10px; border-radius: 5px;">
+                            当前状态: ${data.label} (${data.time})
+                        </div>
+                    `;
+                } else {
+                    console.error('处理错误:', data.message);
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => console.error('请求失败:', error));
         }, 'image/jpeg');
-    }, 1000); // 每秒捕获一帧
+    }, 1000);
 }
 
-// 修改 video 元素的显示
-document.addEventListener('DOMContentLoaded', function() {
-    video.style.display = 'none';  // 隐藏 video 元素
-    canvas.style.display = 'block'; // 显示 canvas 元素
-    startVideo();
-});
+// 页面加载时启动
+document.addEventListener('DOMContentLoaded', startVideo);
 </script>
 </body>
 </html>
-```html
+````html

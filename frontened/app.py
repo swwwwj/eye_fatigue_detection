@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description="Eye Fatigue Detection System")
 parser.add_argument("--model_dir", type=str, required=True, help="模型存储路径，例如 D:/github/eye_fatigue_detection/models")
 parser.add_argument("--data_dir", type=str, required=True, help="数据存储路径，例如 E:/data/eye_data")
 parser.add_argument("--template_dir", type=str, required=True, help="HTML 模板路径，例如 D:/github/eye_fatigue_detection/frontened/templates")
+parser.add_argument("--port", type=int, default=5000, help="运行端口，默认5000")
 args = parser.parse_args()
 
 # 数据存放路径
@@ -312,4 +313,12 @@ def process_frame():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    print(f"\n服务已启动：")
+    print(f"* 本地访问: http://localhost:{args.port}")
+    print(f"* 远程访问: http://<服务器IP>:{args.port}\n")
+    
+    app.run(
+        host="0.0.0.0",
+        port=args.port,
+        debug=False  # 生产环境关闭调试
+    )
