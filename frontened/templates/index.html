@@ -226,6 +226,36 @@
             background-color: #4CAF50;
             color: white;
         }
+
+        .video-container {
+            width: 640px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        #videoElement {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        #detectionResult {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #canvasElement {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -269,7 +299,8 @@
         <div class="main-content">
             <div class="container">
                 <div class="video-container">
-                    <img src="{{ url_for('video_feed') }}" width="100%">
+                    <video id="videoElement" autoplay style="display:none;"></video>
+                    <canvas id="canvasElement"></canvas>
                 </div>
                 <div class="stats-container">
                     <canvas id="fatigueChart"></canvas>
@@ -572,5 +603,83 @@
         }
     }
 </script>
+
+<script>
+const video = document.getElementById('videoElement');
+const canvas = document.getElementById('canvasElement');
+const ctx = canvas.getContext('2d');
+
+// 请求摄像头权限并开始视频流
+async function startVideo() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: {
+                width: 640,
+                height: 480
+            }
+        });
+        video.srcObject = stream;
+        startFrameCapture();
+    } catch (err) {
+        console.error("无法访问摄像头:", err);
+    }
+}
+
+// 定期捕获视频帧并发送到服务器
+function startFrameCapture() {
+    setInterval(() => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        
+        canvas.toBlob((blob) => {
+            const formData = new FormData();
+            formData.append('frame', blob);
+            
+            fetch('/process_frame', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 清除之前的绘制内容
+                ctx.drawImage(video, 0, 0);
+                
+                // 如果检测到人脸，绘制人脸框
+                if (data.face_rect) {
+                    const [x1, y1, x2, y2] = data.face_rect;
+                    ctx.strokeStyle = '#ff0000';  // 改为红色
+                    ctx.lineWidth = 3;           // 增加线条宽度为3
+                    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                }
+                
+                // 显示检测结果
+                if (data.label) {
+                    // 添加文本背景
+                    const text = `当前状态: ${data.label} (${data.time})`;
+                    ctx.font = '16px Arial';
+                    const textWidth = ctx.measureText(text).width;
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(10, 10, textWidth + 20, 30);
+                    
+                    // 添加文本
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(text, 20, 30);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }, 'image/jpeg');
+    }, 1000); // 每秒捕获一帧
+}
+
+// 修改 video 元素的显示
+document.addEventListener('DOMContentLoaded', function() {
+    video.style.display = 'none';  // 隐藏 video 元素
+    canvas.style.display = 'block'; // 显示 canvas 元素
+    startVideo();
+});
+</script>
 </body>
 </html>
+```html

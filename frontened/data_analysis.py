@@ -8,7 +8,7 @@ class FatigueDataAnalyzer:
     def __init__(self, api_key):
         self.api_key = api_key
         self.api_url = "https://api.moonshot.cn/v1/chat/completions"  # 替换为实际的 API 地址
-        self.data_dir = Path("E:/data/eye_data")
+        self.data_dir = Path(r"D:\github\eye_fatigue_detection\face_data")
 
     def _read_data(self, date):
         """读取指定日期的疲劳检测数据"""
